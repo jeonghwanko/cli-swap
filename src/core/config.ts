@@ -30,7 +30,17 @@ export function loadConfig(): AppConfig {
     writeFileSync(CONFIG_FILE, JSON.stringify(defaults, null, 2));
     return defaults;
   }
-  return JSON.parse(readFileSync(CONFIG_FILE, 'utf-8')) as AppConfig;
+  try {
+    return JSON.parse(readFileSync(CONFIG_FILE, 'utf-8')) as AppConfig;
+  } catch {
+    // Corrupted config - reset to defaults
+    const defaults: AppConfig = {
+      defaultSlippage: 0.5,
+      rpcOverrides: {},
+    };
+    writeFileSync(CONFIG_FILE, JSON.stringify(defaults, null, 2));
+    return defaults;
+  }
 }
 
 export function saveConfig(config: AppConfig): void {

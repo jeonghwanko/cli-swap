@@ -7,9 +7,10 @@ import {
   initSdkWithEvmWallet,
   initSdkWithSolanaWallet,
 } from '../core/swapper.js';
-import { getWallet, unlockEvmWallet, unlockSolanaWallet } from '../core/wallet.js';
+import { getWallet } from '../core/wallet.js';
 import { loadConfig } from '../core/config.js';
 import { decrypt } from '../utils/crypto.js';
+import { parseAmount, formatAmount } from '../utils/amount.js';
 import * as display from '../utils/display.js';
 import { askPassword, askConfirm } from '../utils/prompt.js';
 
@@ -68,8 +69,13 @@ export function registerSwapCommand(program: Command): void {
             initSdkWithEvmWallet(privateKey);
           }
           spin.succeed('Wallet unlocked');
-        } catch {
-          spin.fail('Failed to unlock wallet. Wrong password?');
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes('Unsupported state') || msg.includes('bad decrypt') || msg.includes('auth')) {
+            spin.fail('Failed to unlock wallet. Wrong password?');
+          } else {
+            spin.fail(`Failed to unlock wallet: ${msg}`);
+          }
           process.exit(1);
         }
 
@@ -86,9 +92,7 @@ export function registerSwapCommand(program: Command): void {
           if (!fromToken) { spin2.fail(`Token "${fromTokenArg}" not found on ${fromChain.name}.`); process.exit(1); }
           if (!toToken) { spin2.fail(`Token "${toTokenArg}" not found on ${toChain.name}.`); process.exit(1); }
 
-          const amount = BigInt(
-            Math.round(parseFloat(amountArg) * 10 ** fromToken.decimals),
-          ).toString();
+          const amount = parseAmount(amountArg, fromToken.decimals);
 
           const slippage = opts.slippage
             ? parseFloat(opts.slippage) / 100
@@ -106,15 +110,9 @@ export function registerSwapCommand(program: Command): void {
 
           spin2.stop();
 
-          const fromAmountHuman = (
-            Number(BigInt(quote.fromAmount)) / 10 ** fromToken.decimals
-          ).toFixed(6);
-          const toAmountHuman = (
-            Number(BigInt(quote.toAmount)) / 10 ** toToken.decimals
-          ).toFixed(6);
-          const toAmountMinHuman = (
-            Number(BigInt(quote.toAmountMin)) / 10 ** toToken.decimals
-          ).toFixed(6);
+          const fromAmountHuman = formatAmount(quote.fromAmount, fromToken.decimals);
+          const toAmountHuman = formatAmount(quote.toAmount, toToken.decimals);
+          const toAmountMinHuman = formatAmount(quote.toAmountMin, toToken.decimals);
 
           // Show quote and confirm
           if (!opts.json) {

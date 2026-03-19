@@ -20,6 +20,14 @@ import type { QuoteResult, SwapResult } from '../types.js';
 
 let initialized = false;
 
+function ensureHexKey(key: string): `0x${string}` {
+  const normalized = key.startsWith('0x') ? key : `0x${key}`;
+  if (!/^0x[0-9a-fA-F]{64}$/.test(normalized)) {
+    throw new Error('Invalid EVM private key format.');
+  }
+  return normalized as `0x${string}`;
+}
+
 // Common EVM chains for switchChain support
 const COMMON_CHAINS: Chain[] = [
   mainnet, arbitrum, optimism, polygon, base, bsc, avalanche, gnosis, fantom, linea, scroll, zksync, blast, mantle, mode, celo,
@@ -34,7 +42,7 @@ export function initSdk(): void {
 
 /** Initialize Li.Fi SDK with EVM wallet for transaction signing */
 export function initSdkWithEvmWallet(privateKey: string): void {
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const account = privateKeyToAccount(ensureHexKey(privateKey));
   const allChains = COMMON_CHAINS;
 
   createConfig({
@@ -81,7 +89,7 @@ export function initSdkWithBothWallets(
   evmPrivateKey: string,
   solanaPrivateKeyBase58: string,
 ): void {
-  const account = privateKeyToAccount(evmPrivateKey as `0x${string}`);
+  const account = privateKeyToAccount(ensureHexKey(evmPrivateKey));
   const allChains = COMMON_CHAINS;
   const solanaAdapter = new KeypairWalletAdapter(solanaPrivateKeyBase58);
 

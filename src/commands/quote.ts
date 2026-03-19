@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { findChain, findToken, getSwapQuote } from '../core/swapper.js';
 import { getWallet } from '../core/wallet.js';
 import { loadConfig } from '../core/config.js';
+import { parseAmount, formatAmount } from '../utils/amount.js';
 import * as display from '../utils/display.js';
 
 export function registerQuoteCommand(program: Command): void {
@@ -49,10 +50,8 @@ export function registerQuoteCommand(program: Command): void {
           if (!fromToken) { spin.fail(`Token "${fromTokenArg}" not found on ${fromChain.name}.`); process.exit(1); }
           if (!toToken) { spin.fail(`Token "${toTokenArg}" not found on ${toChain.name}.`); process.exit(1); }
 
-          // Calculate amount in smallest unit
-          const amount = BigInt(
-            Math.round(parseFloat(amountArg) * 10 ** fromToken.decimals),
-          ).toString();
+          // Calculate amount in smallest unit (string arithmetic, no precision loss)
+          const amount = parseAmount(amountArg, fromToken.decimals);
 
           const slippage = opts.slippage
             ? parseFloat(opts.slippage) / 100
@@ -70,16 +69,10 @@ export function registerQuoteCommand(program: Command): void {
 
           spin.stop();
 
-          // Format amounts back to human-readable
-          const fromAmountHuman = (
-            Number(BigInt(quote.fromAmount)) / 10 ** fromToken.decimals
-          ).toFixed(6);
-          const toAmountHuman = (
-            Number(BigInt(quote.toAmount)) / 10 ** toToken.decimals
-          ).toFixed(6);
-          const toAmountMinHuman = (
-            Number(BigInt(quote.toAmountMin)) / 10 ** toToken.decimals
-          ).toFixed(6);
+          // Format amounts back to human-readable (string arithmetic, no precision loss)
+          const fromAmountHuman = formatAmount(quote.fromAmount, fromToken.decimals);
+          const toAmountHuman = formatAmount(quote.toAmount, toToken.decimals);
+          const toAmountMinHuman = formatAmount(quote.toAmountMin, toToken.decimals);
 
           if (opts.json) {
             display.jsonOutput({

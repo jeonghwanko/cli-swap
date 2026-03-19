@@ -18,7 +18,7 @@ export function registerTokensCommand(program: Command): void {
         }
 
         let tokens = await getChainTokens(chain.id);
-        const limit = parseInt(opts.limit, 10);
+        const limit = parseInt(opts.limit, 10) || 20;
 
         if (query) {
           const lower = query.toLowerCase();

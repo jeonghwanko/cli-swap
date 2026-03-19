@@ -11,13 +11,23 @@ export function listWallets(): WalletInfo[] {
   ensureDirs();
   const dir = getWalletsDir();
   const files = readdirSync(dir).filter(f => f.endsWith('.json'));
-  return files.map(f => JSON.parse(readFileSync(join(dir, f), 'utf-8')) as WalletInfo);
+  return files.flatMap(f => {
+    try {
+      return [JSON.parse(readFileSync(join(dir, f), 'utf-8')) as WalletInfo];
+    } catch {
+      return []; // Skip corrupted wallet files
+    }
+  });
 }
 
 export function getWallet(name: string): WalletInfo | null {
   const filePath = join(getWalletsDir(), `${name}.json`);
   if (!existsSync(filePath)) return null;
-  return JSON.parse(readFileSync(filePath, 'utf-8')) as WalletInfo;
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf-8')) as WalletInfo;
+  } catch {
+    return null; // Corrupted wallet file
+  }
 }
 
 export function saveWallet(wallet: WalletInfo): void {
@@ -38,8 +48,20 @@ export function importEvmWallet(
   privateKey: string,
   password: string,
 ): WalletInfo {
-  // Validate key
-  const wallet = new ethers.Wallet(privateKey);
+  // Normalize: add 0x prefix if missing
+  if (!privateKey.startsWith('0x')) {
+    privateKey = '0x' + privateKey;
+  }
+  if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
+    throw new Error('Invalid EVM private key. Must be 64 hex characters (with or without 0x prefix).');
+  }
+
+  let wallet: ethers.Wallet;
+  try {
+    wallet = new ethers.Wallet(privateKey);
+  } catch {
+    throw new Error('Invalid EVM private key. Could not derive wallet address.');
+  }
 
   const { encrypted, iv, salt, authTag } = encrypt(privateKey, password);
 
@@ -62,9 +84,13 @@ export function importSolanaWallet(
   privateKeyBase58: string,
   password: string,
 ): WalletInfo {
-  // Validate key
-  const secretKey = bs58.decode(privateKeyBase58);
-  const keypair = Keypair.fromSecretKey(secretKey);
+  let keypair: Keypair;
+  try {
+    const secretKey = bs58.decode(privateKeyBase58);
+    keypair = Keypair.fromSecretKey(secretKey);
+  } catch {
+    throw new Error('Invalid Solana private key. Must be a valid base58-encoded secret key.');
+  }
 
   const { encrypted, iv, salt, authTag } = encrypt(privateKeyBase58, password);
 
