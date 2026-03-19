@@ -1,9 +1,10 @@
 import { Command } from 'commander';
 import { ethers } from 'ethers';
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
 import { findChain } from '../core/swapper.js';
 import { getWallet } from '../core/wallet.js';
 import { loadConfig } from '../core/config.js';
+import { formatAmount } from '../utils/amount.js';
 import * as display from '../utils/display.js';
 
 export function registerBalanceCommand(program: Command): void {
@@ -29,7 +30,7 @@ export function registerBalanceCommand(program: Command): void {
 
       const chain = await findChain(chainArg);
       if (!chain) {
-        display.error(`Chain "${chainArg}" not found.`);
+        display.error(`Chain "${chainArg}" not found. Run \`cli-swap chains\` to see available chains.`);
         process.exit(1);
       }
 
@@ -45,7 +46,7 @@ export function registerBalanceCommand(program: Command): void {
           const connection = new Connection(rpcUrl);
           const pubkey = new PublicKey(walletInfo.address);
           const lamports = await connection.getBalance(pubkey);
-          balance = (lamports / LAMPORTS_PER_SOL).toFixed(6);
+          balance = formatAmount(lamports.toString(), 9); // SOL has 9 decimals
           symbol = 'SOL';
         } else {
           // EVM
@@ -54,7 +55,7 @@ export function registerBalanceCommand(program: Command): void {
             ?? `https://rpc.ankr.com/${chain.key}`;
           const provider = new ethers.JsonRpcProvider(rpcUrl);
           const wei = await provider.getBalance(walletInfo.address);
-          balance = ethers.formatEther(wei);
+          balance = formatAmount(wei.toString(), 18);
           symbol = chain.nativeToken?.symbol ?? 'ETH';
         }
 

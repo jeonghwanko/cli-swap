@@ -19,6 +19,7 @@ import type { QuoteResult, SwapResult } from '../types.js';
 import { ensureHexKey } from '../utils/validate.js';
 
 let initialized = false;
+const INTEGRATOR = 'cli-swap';
 
 // Common EVM chains for switchChain support
 const COMMON_CHAINS: Chain[] = [
@@ -28,7 +29,7 @@ const COMMON_CHAINS: Chain[] = [
 /** Initialize Li.Fi SDK without wallet (for queries only) */
 export function initSdk(): void {
   if (initialized) return;
-  createConfig({ integrator: 'cli-swap' });
+  createConfig({ integrator: INTEGRATOR });
   initialized = true;
 }
 
@@ -38,7 +39,7 @@ export function initSdkWithEvmWallet(privateKey: string): void {
   const allChains = COMMON_CHAINS;
 
   createConfig({
-    integrator: 'cli-swap',
+    integrator: INTEGRATOR,
     providers: [
       EVM({
         getWalletClient: async () =>
@@ -66,7 +67,7 @@ export function initSdkWithSolanaWallet(privateKeyBase58: string): void {
   const adapter = new KeypairWalletAdapter(privateKeyBase58);
 
   createConfig({
-    integrator: 'cli-swap',
+    integrator: INTEGRATOR,
     providers: [
       Solana({
         getWalletAdapter: async () => adapter,
@@ -86,7 +87,7 @@ export function initSdkWithBothWallets(
   const solanaAdapter = new KeypairWalletAdapter(solanaPrivateKeyBase58);
 
   createConfig({
-    integrator: 'cli-swap',
+    integrator: INTEGRATOR,
     providers: [
       EVM({
         getWalletClient: async () =>
@@ -173,7 +174,7 @@ export async function getSwapQuote(params: {
   toTokenAddress: string;
   fromAmount: string;
   fromAddress: string;
-  slippage?: number;
+  slippage: number;
 }): Promise<{ quote: QuoteResult; route: Route }> {
   initSdk();
 
@@ -185,7 +186,7 @@ export async function getSwapQuote(params: {
     fromAmount: params.fromAmount,
     fromAddress: params.fromAddress,
     options: {
-      slippage: params.slippage ?? 0.005,
+      slippage: params.slippage,
     },
   });
 
