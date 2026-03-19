@@ -1,0 +1,84 @@
+import { Command } from 'commander';
+import { ethers } from 'ethers';
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { findChain } from '../core/swapper.js';
+import { getWallet, listWallets } from '../core/wallet.js';
+import { loadConfig } from '../core/config.js';
+import * as display from '../utils/display.js';
+
+export function registerBalanceCommand(program: Command): void {
+  program
+    .command('balance <chain>')
+    .description('Check wallet balance on a chain')
+    .option('--wallet <name>', 'Wallet name (uses default if omitted)')
+    .option('--json', 'Output as JSON')
+    .action(async (chainArg: string, opts) => {
+      const config = loadConfig();
+      const walletName = opts.wallet ?? config.defaultWallet;
+
+      if (!walletName) {
+        display.error('No wallet specified. Use --wallet <name> or set a default wallet.');
+        process.exit(1);
+      }
+
+      const walletInfo = getWallet(walletName);
+      if (!walletInfo) {
+        display.error(`Wallet "${walletName}" not found.`);
+        process.exit(1);
+      }
+
+      const chain = await findChain(chainArg);
+      if (!chain) {
+        display.error(`Chain "${chainArg}" not found.`);
+        process.exit(1);
+      }
+
+      const spin = display.spinner(`Fetching balance on ${chain.name}...`);
+
+      try {
+        let balance: string;
+        let symbol: string;
+
+        if (chain.chainType === 'SVM') {
+          // Solana
+          const rpcUrl = config.rpcOverrides[String(chain.id)] ?? 'https://api.mainnet-beta.solana.com';
+          const connection = new Connection(rpcUrl);
+          const pubkey = new PublicKey(walletInfo.address);
+          const lamports = await connection.getBalance(pubkey);
+          balance = (lamports / LAMPORTS_PER_SOL).toFixed(6);
+          symbol = 'SOL';
+        } else {
+          // EVM
+          const rpcUrl = config.rpcOverrides[String(chain.id)]
+            ?? chain.metamask?.rpcUrls?.[0]
+            ?? `https://rpc.ankr.com/${chain.key}`;
+          const provider = new ethers.JsonRpcProvider(rpcUrl);
+          const wei = await provider.getBalance(walletInfo.address);
+          balance = ethers.formatEther(wei);
+          symbol = chain.nativeToken?.symbol ?? 'ETH';
+        }
+
+        spin.stop();
+
+        if (opts.json) {
+          display.jsonOutput({
+            wallet: walletName,
+            chain: chain.name,
+            chainId: chain.id,
+            address: walletInfo.address,
+            balance,
+            symbol,
+          });
+        } else {
+          display.heading(`Balance on ${chain.name}`);
+          display.keyValue('Wallet', walletName);
+          display.keyValue('Address', walletInfo.address);
+          display.keyValue('Balance', `${balance} ${symbol}`);
+        }
+      } catch (err) {
+        spin.fail('Failed to fetch balance');
+        display.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+}
