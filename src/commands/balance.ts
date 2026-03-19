@@ -18,20 +18,17 @@ export function registerBalanceCommand(program: Command): void {
       const walletName = opts.wallet ?? config.defaultWallet;
 
       if (!walletName) {
-        display.error('No wallet specified. Use --wallet <name> or set a default wallet.');
-        process.exit(1);
+        display.exitWithError('No wallet specified. Use --wallet <name> or set a default wallet.', opts.json);
       }
 
       const walletInfo = getWallet(walletName);
       if (!walletInfo) {
-        display.error(`Wallet "${walletName}" not found.`);
-        process.exit(1);
+        display.exitWithError(`Wallet "${walletName}" not found. Run \`cli-swap wallet list\` to see available wallets.`, opts.json);
       }
 
       const chain = await findChain(chainArg);
       if (!chain) {
-        display.error(`Chain "${chainArg}" not found. Run \`cli-swap chains\` to see available chains.`);
-        process.exit(1);
+        display.exitWithError(`Chain "${chainArg}" not found. Run \`cli-swap chains\` to see available chains.`, opts.json);
       }
 
       const spin = display.spinner(`Fetching balance on ${chain.name}...`);

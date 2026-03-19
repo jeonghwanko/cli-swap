@@ -25,14 +25,12 @@ export function registerQuoteCommand(program: Command): void {
         const walletName = opts.wallet ?? config.defaultWallet;
 
         if (!walletName) {
-          display.error('No wallet specified. Import a wallet first.');
-          process.exit(1);
+          display.exitWithError('No wallet specified. Import a wallet first.', opts.json);
         }
 
         const walletInfo = getWallet(walletName);
         if (!walletInfo) {
-          display.error(`Wallet "${walletName}" not found.`);
-          process.exit(1);
+          display.exitWithError(`Wallet "${walletName}" not found. Run \`cli-swap wallet list\` to see available wallets.`, opts.json);
         }
 
         const spin = display.spinner('Fetching quote...');
@@ -41,14 +39,14 @@ export function registerQuoteCommand(program: Command): void {
           // Resolve chains
           const fromChain = await findChain(fromChainArg);
           const toChain = await findChain(toChainArg);
-          if (!fromChain) { spin.fail(`Chain "${fromChainArg}" not found.`); process.exit(1); }
-          if (!toChain) { spin.fail(`Chain "${toChainArg}" not found.`); process.exit(1); }
+          if (!fromChain) { spin.stop(); display.exitWithError(`Chain "${fromChainArg}" not found. Run \`cli-swap chains\` to see available chains.`, opts.json); }
+          if (!toChain) { spin.stop(); display.exitWithError(`Chain "${toChainArg}" not found. Run \`cli-swap chains\` to see available chains.`, opts.json); }
 
           // Resolve tokens
           const fromToken = await findToken(fromChain.id, fromTokenArg);
           const toToken = await findToken(toChain.id, toTokenArg);
-          if (!fromToken) { spin.fail(`Token "${fromTokenArg}" not found on ${fromChain.name}.`); process.exit(1); }
-          if (!toToken) { spin.fail(`Token "${toTokenArg}" not found on ${toChain.name}.`); process.exit(1); }
+          if (!fromToken) { spin.stop(); display.exitWithError(`Token "${fromTokenArg}" not found on ${fromChain.name}. Run \`cli-swap tokens ${fromChain.key}\` to search.`, opts.json); }
+          if (!toToken) { spin.stop(); display.exitWithError(`Token "${toTokenArg}" not found on ${toChain.name}. Run \`cli-swap tokens ${toChain.key}\` to search.`, opts.json); }
 
           // Calculate amount in smallest unit (string arithmetic, no precision loss)
           const amount = parseAmount(amountArg, fromToken.decimals);

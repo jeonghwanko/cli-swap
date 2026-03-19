@@ -9,7 +9,7 @@ import {
 } from '../core/swapper.js';
 import { getWallet } from '../core/wallet.js';
 import { loadConfig } from '../core/config.js';
-import { decrypt } from '../utils/crypto.js';
+import { decrypt, DecryptionError } from '../utils/crypto.js';
 import { parseAmount, formatAmount } from '../utils/amount.js';
 import * as display from '../utils/display.js';
 import { askPassword, askConfirm } from '../utils/prompt.js';
@@ -36,14 +36,12 @@ export function registerSwapCommand(program: Command): void {
         const walletName = opts.wallet ?? config.defaultWallet;
 
         if (!walletName) {
-          display.error('No wallet specified. Import a wallet first.');
-          process.exit(1);
+          display.exitWithError('No wallet specified. Import a wallet first.', opts.json);
         }
 
         const walletInfo = getWallet(walletName);
         if (!walletInfo) {
-          display.error(`Wallet "${walletName}" not found.`);
-          process.exit(1);
+          display.exitWithError(`Wallet "${walletName}" not found. Run \`cli-swap wallet list\` to see available wallets.`, opts.json);
         }
 
         // Get password
@@ -70,13 +68,16 @@ export function registerSwapCommand(program: Command): void {
           }
           spin.succeed('Wallet unlocked');
         } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          if (msg.includes('Unsupported state') || msg.includes('bad decrypt') || msg.includes('auth')) {
+          if (err instanceof DecryptionError) {
             spin.fail('Failed to unlock wallet. Wrong password?');
           } else {
+            const msg = err instanceof Error ? err.message : String(err);
             spin.fail(`Failed to unlock wallet: ${msg}`);
           }
-          process.exit(1);
+          display.exitWithError(
+            err instanceof DecryptionError ? 'Wrong password.' : (err instanceof Error ? err.message : String(err)),
+            opts.json,
+          );
         }
 
         // Resolve chains and tokens
@@ -84,13 +85,13 @@ export function registerSwapCommand(program: Command): void {
         try {
           const fromChain = await findChain(fromChainArg);
           const toChain = await findChain(toChainArg);
-          if (!fromChain) { spin2.fail(`Chain "${fromChainArg}" not found.`); process.exit(1); }
-          if (!toChain) { spin2.fail(`Chain "${toChainArg}" not found.`); process.exit(1); }
+          if (!fromChain) { spin2.stop(); display.exitWithError(`Chain "${fromChainArg}" not found. Run \`cli-swap chains\` to see available chains.`, opts.json); }
+          if (!toChain) { spin2.stop(); display.exitWithError(`Chain "${toChainArg}" not found. Run \`cli-swap chains\` to see available chains.`, opts.json); }
 
           const fromToken = await findToken(fromChain.id, fromTokenArg);
           const toToken = await findToken(toChain.id, toTokenArg);
-          if (!fromToken) { spin2.fail(`Token "${fromTokenArg}" not found on ${fromChain.name}.`); process.exit(1); }
-          if (!toToken) { spin2.fail(`Token "${toTokenArg}" not found on ${toChain.name}.`); process.exit(1); }
+          if (!fromToken) { spin2.stop(); display.exitWithError(`Token "${fromTokenArg}" not found on ${fromChain.name}. Run \`cli-swap tokens ${fromChain.key}\` to search.`, opts.json); }
+          if (!toToken) { spin2.stop(); display.exitWithError(`Token "${toTokenArg}" not found on ${toChain.name}. Run \`cli-swap tokens ${toChain.key}\` to search.`, opts.json); }
 
           const amount = parseAmount(amountArg, fromToken.decimals);
 

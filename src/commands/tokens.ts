@@ -13,8 +13,8 @@ export function registerTokensCommand(program: Command): void {
       try {
         const chain = await findChain(chainArg);
         if (!chain) {
-          spin.fail(`Chain "${chainArg}" not found. Run \`cli-swap chains\` to see available chains.`);
-          process.exit(1);
+          spin.stop();
+          display.exitWithError(`Chain "${chainArg}" not found. Run \`cli-swap chains\` to see available chains.`, opts.json);
         }
 
         let tokens = await getChainTokens(chain.id);

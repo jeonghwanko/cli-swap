@@ -114,10 +114,18 @@ cli-swap swap ethereum USDC polygon USDC 100 --yes --json
 ```
 
 **Key flags for automation:**
-- `--json`: All output as parseable JSON
+- `--json`: All output as parseable JSON (both success and errors)
 - `--yes`: Skip confirmation prompts
 - `--password <pw>` or `SWAP_WALLET_PASSWORD` env: Non-interactive password
 - Exit codes: `0` = success, `1` = failure
+
+**Error response (JSON):**
+```json
+{
+  "status": "failed",
+  "error": "Wallet \"main\" not found. Run `cli-swap wallet list` to see available wallets."
+}
+```
 
 ## Security
 
@@ -126,11 +134,63 @@ cli-swap swap ethereum USDC polygon USDC 100 --yes --json
 - Keys are never logged or printed
 - Password required to unlock for every swap
 
+## Configuration
+
+Config file: `~/.cli-swap/config.json`
+
+```json
+{
+  "defaultWallet": "main",
+  "defaultSlippage": 0.5,
+  "rpcOverrides": {
+    "1": "https://my-custom-rpc.com"
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `defaultWallet` | — | Wallet used when `--wallet` is omitted |
+| `defaultSlippage` | `0.5` | Slippage tolerance in % |
+| `rpcOverrides` | `{}` | Custom RPC URLs keyed by chain ID |
+
 ## Supported Chains
 
 60+ chains including: Ethereum, Solana, Polygon, Arbitrum, Optimism, Base, BSC, Avalanche, Gnosis, Fantom, zkSync, Linea, Scroll, Blast, Mantle, Mode, Celo, and many more.
 
 Run `cli-swap chains` for the full list.
+
+## Development
+
+```bash
+git clone https://github.com/jeonghwanko/cli-swap.git
+cd cli-swap
+npm install
+
+# Dev mode (auto-reload)
+npm run dev -- wallet list
+
+# Build
+npm run build
+
+# Run tests (41 tests across 5 suites)
+npm test
+
+# Type check
+npx tsc --noEmit
+```
+
+### Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| CLI framework | Commander.js |
+| Swap aggregator | Li.Fi SDK (60+ chains) |
+| EVM | ethers.js v6 |
+| Solana | @solana/web3.js |
+| Encryption | Node.js crypto (AES-256-GCM + scrypt) |
+| Testing | Vitest 4 |
+| Language | TypeScript (strict, ESM) |
 
 ## License
 

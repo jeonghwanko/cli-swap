@@ -1,5 +1,12 @@
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from 'node:crypto';
 
+export class DecryptionError extends Error {
+  constructor(message = 'Decryption failed. Wrong password or corrupted data.') {
+    super(message);
+    this.name = 'DecryptionError';
+  }
+}
+
 const ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32;
 const SALT_LENGTH = 32;
@@ -40,10 +47,13 @@ export function decrypt(
   const iv = Buffer.from(ivHex, 'hex');
   const authTag = Buffer.from(authTagHex, 'hex');
 
-  const decipher = createDecipheriv(ALGORITHM, key, iv);
-  decipher.setAuthTag(authTag);
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-
-  return decrypted;
+  try {
+    const decipher = createDecipheriv(ALGORITHM, key, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch {
+    throw new DecryptionError();
+  }
 }

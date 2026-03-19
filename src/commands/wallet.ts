@@ -61,8 +61,8 @@ export function registerWalletCommand(program: Command): void {
           display.keyValue('Address', info.address);
         }
       } catch (err) {
-        display.error(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
-        process.exit(1);
+        const msg = `Import failed: ${err instanceof Error ? err.message : String(err)}`;
+        display.exitWithError(msg, opts.json);
       }
     });
 
@@ -111,7 +111,7 @@ export function registerWalletCommand(program: Command): void {
     .option('--yes', 'Skip confirmation')
     .action(async (name: string, opts) => {
       if (!getWallet(name)) {
-        display.error(`Wallet "${name}" not found.`);
+        display.error(`Wallet "${name}" not found. Run \`cli-swap wallet list\` to see available wallets.`);
         process.exit(1);
       }
 
@@ -140,7 +140,7 @@ export function registerWalletCommand(program: Command): void {
     .description('Set default wallet')
     .action((name: string) => {
       if (!getWallet(name)) {
-        display.error(`Wallet "${name}" not found.`);
+        display.error(`Wallet "${name}" not found. Run \`cli-swap wallet list\` to see available wallets.`);
         process.exit(1);
       }
       const config = loadConfig();
