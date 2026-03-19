@@ -18,7 +18,7 @@ import { mainnet, arbitrum, optimism, polygon, base, bsc, avalanche, gnosis, fan
 import type { QuoteResult, SwapResult } from '../types.js';
 import { ensureHexKey } from '../utils/validate.js';
 
-let initialized = false;
+let initialized: 'none' | 'query' | 'wallet' = 'none';
 const INTEGRATOR = 'cli-swap';
 
 // Common EVM chains for switchChain support
@@ -28,9 +28,9 @@ const COMMON_CHAINS: Chain[] = [
 
 /** Initialize Li.Fi SDK without wallet (for queries only) */
 export function initSdk(): void {
-  if (initialized) return;
+  if (initialized !== 'none') return; // already initialized (query or wallet)
   createConfig({ integrator: INTEGRATOR });
-  initialized = true;
+  initialized = 'query';
 }
 
 /** Initialize Li.Fi SDK with EVM wallet for transaction signing */
@@ -59,7 +59,7 @@ export function initSdkWithEvmWallet(privateKey: string): void {
       }),
     ],
   });
-  initialized = true;
+  initialized = 'wallet';
 }
 
 /** Initialize Li.Fi SDK with Solana wallet */
@@ -74,7 +74,7 @@ export function initSdkWithSolanaWallet(privateKeyBase58: string): void {
       }),
     ],
   });
-  initialized = true;
+  initialized = 'wallet';
 }
 
 /** Initialize with both EVM + Solana wallets (for cross-ecosystem swaps) */
@@ -110,7 +110,7 @@ export function initSdkWithBothWallets(
       }),
     ],
   });
-  initialized = true;
+  initialized = 'wallet';
 }
 
 /** Get all supported chains */

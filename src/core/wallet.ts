@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'node:fs';
+import { openSync, readFileSync, writeFileSync, readdirSync, unlinkSync, constants } from 'node:fs';
 import { join } from 'node:path';
 import { ethers } from 'ethers';
 import { Keypair } from '@solana/web3.js';
@@ -23,25 +23,37 @@ export function listWallets(): WalletInfo[] {
 
 export function getWallet(name: string): WalletInfo | null {
   const filePath = join(getWalletsDir(), `${name}.json`);
-  if (!existsSync(filePath)) return null;
+  // No existsSync — just try to read (eliminates TOCTOU)
   try {
     return JSON.parse(readFileSync(filePath, 'utf-8')) as WalletInfo;
   } catch {
-    return null; // Corrupted wallet file
+    return null;
   }
 }
 
-export function saveWallet(wallet: WalletInfo): void {
+/** Save wallet, optionally requiring the file NOT to already exist (exclusive create) */
+export function saveWallet(wallet: WalletInfo, exclusive = false): void {
   ensureDirs();
   const filePath = join(getWalletsDir(), `${wallet.name}.json`);
-  writeFileSync(filePath, JSON.stringify(wallet, null, 2));
+  const data = JSON.stringify(wallet, null, 2);
+
+  if (exclusive) {
+    // O_CREAT | O_EXCL | O_WRONLY — fails atomically if file already exists
+    const fd = openSync(filePath, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY);
+    writeFileSync(fd, data);
+  } else {
+    writeFileSync(filePath, data);
+  }
 }
 
 export function removeWallet(name: string): boolean {
   const filePath = join(getWalletsDir(), `${name}.json`);
-  if (!existsSync(filePath)) return false;
-  unlinkSync(filePath);
-  return true;
+  try {
+    unlinkSync(filePath);
+    return true;
+  } catch {
+    return false; // Already deleted or never existed
+  }
 }
 
 export function importEvmWallet(
@@ -71,7 +83,7 @@ export function importEvmWallet(
     authTag,
     createdAt: new Date().toISOString(),
   };
-  saveWallet(info);
+  saveWallet(info, true); // exclusive: fail if already exists
   return info;
 }
 
@@ -100,7 +112,7 @@ export function importSolanaWallet(
     authTag,
     createdAt: new Date().toISOString(),
   };
-  saveWallet(info);
+  saveWallet(info, true); // exclusive: fail if already exists
   return info;
 }
 
