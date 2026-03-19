@@ -40,8 +40,8 @@ export function registerChainsCommand(program: Command): void {
         }
       } catch (err) {
         spin.fail('Failed to fetch chains');
-        display.error(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        const msg = err instanceof Error ? err.message : String(err);
+        display.exitWithError(msg, opts.json);
       }
     });
 }

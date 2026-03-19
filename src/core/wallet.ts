@@ -4,6 +4,7 @@ import { ethers } from 'ethers';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { encrypt, decrypt } from '../utils/crypto.js';
+import { normalizeEvmKey } from '../utils/validate.js';
 import { getWalletsDir, ensureDirs } from './config.js';
 import type { WalletInfo } from '../types.js';
 
@@ -48,13 +49,8 @@ export function importEvmWallet(
   privateKey: string,
   password: string,
 ): WalletInfo {
-  // Normalize: add 0x prefix if missing
-  if (!privateKey.startsWith('0x')) {
-    privateKey = '0x' + privateKey;
-  }
-  if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
-    throw new Error('Invalid EVM private key. Must be 64 hex characters (with or without 0x prefix).');
-  }
+  // Normalize and validate (shared SSOT validation)
+  privateKey = normalizeEvmKey(privateKey);
 
   let wallet: ethers.Wallet;
   try {

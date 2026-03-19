@@ -38,3 +38,13 @@ export function spinner(text: string): Ora {
 export function jsonOutput(data: unknown): void {
   console.log(JSON.stringify(data, null, 2));
 }
+
+/** Standard error exit: outputs JSON if --json flag set, otherwise display.error */
+export function exitWithError(msg: string, json?: boolean): never {
+  if (json) {
+    jsonOutput({ status: 'failed', error: msg });
+  } else {
+    error(msg);
+  }
+  process.exit(1);
+}

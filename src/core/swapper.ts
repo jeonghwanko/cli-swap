@@ -3,7 +3,6 @@ import {
   getChains,
   getTokens,
   getToken,
-  getQuote,
   getRoutes,
   executeRoute,
   EVM,
@@ -17,16 +16,9 @@ import { createWalletClient, http, type Chain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { mainnet, arbitrum, optimism, polygon, base, bsc, avalanche, gnosis, fantom, linea, scroll, zksync, blast, mantle, mode, celo } from 'viem/chains';
 import type { QuoteResult, SwapResult } from '../types.js';
+import { ensureHexKey } from '../utils/validate.js';
 
 let initialized = false;
-
-function ensureHexKey(key: string): `0x${string}` {
-  const normalized = key.startsWith('0x') ? key : `0x${key}`;
-  if (!/^0x[0-9a-fA-F]{64}$/.test(normalized)) {
-    throw new Error('Invalid EVM private key format.');
-  }
-  return normalized as `0x${string}`;
-}
 
 // Common EVM chains for switchChain support
 const COMMON_CHAINS: Chain[] = [
@@ -214,7 +206,6 @@ export async function getSwapQuote(params: {
     estimatedGas: route.gasCostUSD ?? '0',
     executionDuration: route.steps.reduce((sum, s) => sum + (s.estimate.executionDuration ?? 0), 0),
     toolsUsed: route.steps.map(s => s.tool),
-    route,
   };
 
   return { quote, route };

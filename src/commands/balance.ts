@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { ethers } from 'ethers';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { findChain } from '../core/swapper.js';
-import { getWallet, listWallets } from '../core/wallet.js';
+import { getWallet } from '../core/wallet.js';
 import { loadConfig } from '../core/config.js';
 import * as display from '../utils/display.js';
 
@@ -77,8 +77,8 @@ export function registerBalanceCommand(program: Command): void {
         }
       } catch (err) {
         spin.fail('Failed to fetch balance');
-        display.error(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        const msg = err instanceof Error ? err.message : String(err);
+        display.exitWithError(msg, opts.json);
       }
     });
 }

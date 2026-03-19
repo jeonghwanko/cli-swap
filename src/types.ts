@@ -15,16 +15,6 @@ export interface AppConfig {
   rpcOverrides: Record<string, string>;  // chainId -> rpc url
 }
 
-export interface SwapParams {
-  fromChain: string;
-  fromToken: string;
-  toChain: string;
-  toToken: string;
-  amount: string;
-  slippage: number;
-  walletName?: string;
-}
-
 export interface QuoteResult {
   fromChain: string;
   fromToken: string;
@@ -36,7 +26,6 @@ export interface QuoteResult {
   estimatedGas: string;
   executionDuration: number; // seconds
   toolsUsed: string[];
-  route: unknown;
 }
 
 export interface SwapResult {
