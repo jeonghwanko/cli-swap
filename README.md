@@ -127,6 +127,72 @@ cli-swap swap ethereum USDC polygon USDC 100 --yes --json
 }
 ```
 
+## MCP Server (AI Agent Native Integration)
+
+cli-swap includes a built-in [MCP](https://modelcontextprotocol.io/) server that exposes swap functionality as native tools for AI agents like Claude.
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `list_chains` | List all 60+ supported chains |
+| `search_tokens` | Search tokens on a chain by symbol/name |
+| `get_balance` | Check native token balance |
+| `get_quote` | Get swap quote (no execution) |
+| `execute_swap` | Execute a token swap |
+| `list_wallets` | List saved wallets |
+| `import_wallet` | Import a new wallet |
+
+### Setup for Claude Desktop
+
+Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "cli-swap": {
+      "command": "npx",
+      "args": ["-y", "cli-swap-mcp"]
+    }
+  }
+}
+```
+
+Or if installed from source:
+
+```json
+{
+  "mcpServers": {
+    "cli-swap": {
+      "command": "node",
+      "args": ["C:/path/to/cli-swap/dist/mcp-server.js"]
+    }
+  }
+}
+```
+
+### Setup for Claude Code
+
+```bash
+claude mcp add cli-swap -- npx -y cli-swap-mcp
+```
+
+Or from source:
+
+```bash
+claude mcp add cli-swap -- npx tsx C:/path/to/cli-swap/src/mcp-server.ts
+```
+
+### Usage with AI Agent
+
+Once connected, the AI agent can directly call tools:
+
+> "이더리움에서 USDC 토큰 검색해줘" → `search_tokens(chain: "ethereum", query: "USDC")`
+>
+> "내 지갑 잔액 확인해줘" → `get_balance(chain: "ethereum", wallet: "main")`
+>
+> "이더리움 ETH를 아비트럼 USDC로 0.1개 스왑해줘" → `execute_swap(...)`
+
 ## Security
 
 - Private keys are encrypted with **AES-256-GCM** using scrypt-derived keys
@@ -185,6 +251,7 @@ npx tsc --noEmit
 | Component | Technology |
 |-----------|-----------|
 | CLI framework | Commander.js |
+| MCP Server | @modelcontextprotocol/sdk |
 | Swap aggregator | Li.Fi SDK (60+ chains) |
 | EVM | ethers.js v6 |
 | Solana | @solana/web3.js |
