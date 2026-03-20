@@ -59,6 +59,15 @@ cli-swap tokens <chain> [query]           # Search tokens on a chain
 cli-swap balance <chain>                  # Check native token balance
 ```
 
+### Configuration
+
+```bash
+cli-swap config show                      # Show current config
+cli-swap config set-rpc <chainId> <url>   # Set custom RPC URL
+cli-swap config remove-rpc <chainId>      # Remove custom RPC URL
+cli-swap config set-slippage <pct>        # Set default slippage (e.g. 0.5)
+```
+
 ### Swap
 
 ```bash
@@ -192,6 +201,39 @@ Once connected, the AI agent can directly call tools:
 > "내 지갑 잔액 확인해줘" → `get_balance(chain: "ethereum", wallet: "main")`
 >
 > "이더리움 ETH를 아비트럼 USDC로 0.1개 스왑해줘" → `execute_swap(...)`
+
+## HTTP API Server
+
+For AI agents and services that don't support MCP, cli-swap also provides a REST API:
+
+```bash
+# Start HTTP API server
+npx cli-swap-api                          # port 3100 (default)
+npx cli-swap-api --port 8080              # custom port
+npx cli-swap-api --api-key mysecretkey    # with API key auth
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/chains?type=EVM` | List chains |
+| `GET` | `/tokens/:chain?query=USDC` | Search tokens |
+| `GET` | `/balance/:chain?wallet=name` | Check balance |
+| `POST` | `/quote` | Get swap quote |
+| `POST` | `/swap` | Execute swap |
+| `GET` | `/wallets` | List wallets |
+| `POST` | `/wallets` | Import wallet |
+
+### Example
+
+```bash
+# Get a swap quote
+curl -X POST http://localhost:3100/quote \
+  -H "Content-Type: application/json" \
+  -d '{"fromChain":"ethereum","fromToken":"ETH","toChain":"ethereum","toToken":"USDC","amount":"1","wallet":"main"}'
+```
 
 ## Security
 

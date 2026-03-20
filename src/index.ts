@@ -7,6 +7,7 @@ import { registerTokensCommand } from './commands/tokens.js';
 import { registerBalanceCommand } from './commands/balance.js';
 import { registerQuoteCommand } from './commands/quote.js';
 import { registerSwapCommand } from './commands/swap.js';
+import { registerConfigCommand } from './commands/config.js';
 
 const program = new Command();
 
@@ -22,5 +23,6 @@ registerTokensCommand(program);
 registerBalanceCommand(program);
 registerQuoteCommand(program);
 registerSwapCommand(program);
+registerConfigCommand(program);
 
 program.parse();
