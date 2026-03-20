@@ -2,11 +2,16 @@
 
 Multi-chain token swap CLI for humans and AI agents. Powered by [Li.Fi SDK](https://li.fi/) (60+ chains).
 
+**The open-source DeFi toolkit for AI agents.** Swap any token on 60+ chains via CLI, MCP, or HTTP API.
+
 ## Features
 
 - **60+ chains**: Ethereum, Solana, Polygon, Arbitrum, Base, BSC, Optimism, Avalanche, and more
 - **Same-chain & cross-chain**: Swap tokens within or across any supported chain
-- **AI Agent friendly**: `--json` output + `--yes` auto-confirm + env var password
+- **3 integration modes**: CLI, MCP Server (Claude native), HTTP REST API
+- **Agent mode**: Natural language swaps — `cli-swap agent "swap 1 ETH to USDC"`
+- **Batch swaps**: Execute multiple swaps from a JSON file
+- **AI SDK examples**: Claude Agent SDK, LangChain, Vercel AI SDK
 - **Secure wallet storage**: AES-256-GCM encrypted private keys stored locally
 - **Best route**: Li.Fi aggregates 20+ DEXs and 20+ bridges for optimal pricing
 
@@ -101,6 +106,41 @@ cli-swap swap solana SOL solana USDC 5
 
 # Cross-ecosystem: Solana SOL → Ethereum USDC
 cli-swap swap solana SOL ethereum USDC 5
+```
+
+### Agent Mode (Natural Language)
+
+```bash
+# Natural language swap
+cli-swap agent "swap 1 ETH to USDC on ethereum"
+cli-swap agent "이더리움 ETH 0.5개를 USDC로 바꿔줘"
+cli-swap agent "bridge 100 USDC from ethereum to polygon"
+
+# Non-interactive (for automation)
+cli-swap agent "swap 1 ETH to USDC on ethereum" --wallet main --password mypass --yes --json
+```
+
+### Batch Swaps
+
+Execute multiple swaps from a JSON file:
+
+```bash
+# Preview (dry run)
+cli-swap batch swaps.json --dry-run
+
+# Execute all
+cli-swap batch swaps.json --wallet main --password mypass
+
+# Continue even if one fails
+cli-swap batch swaps.json --continue-on-error --json
+```
+
+**swaps.json:**
+```json
+[
+  { "fromChain": "ethereum", "fromToken": "ETH", "toChain": "ethereum", "toToken": "USDC", "amount": "0.1" },
+  { "fromChain": "ethereum", "fromToken": "USDC", "toChain": "polygon", "toToken": "USDC", "amount": "50" }
+]
 ```
 
 ## AI Agent Integration
@@ -201,6 +241,30 @@ Once connected, the AI agent can directly call tools:
 > "내 지갑 잔액 확인해줘" → `get_balance(chain: "ethereum", wallet: "main")`
 >
 > "이더리움 ETH를 아비트럼 USDC로 0.1개 스왑해줘" → `execute_swap(...)`
+
+### SDK Integration Examples
+
+Ready-to-run examples in the [`examples/`](./examples) directory:
+
+| File | SDK | Description |
+|------|-----|-------------|
+| [`claude-agent-sdk.ts`](./examples/claude-agent-sdk.ts) | Claude Agent SDK | Claude as a DeFi trading agent |
+| [`langchain.ts`](./examples/langchain.ts) | LangChain | OpenAI Functions Agent + cli-swap HTTP API |
+| [`vercel-ai-sdk.ts`](./examples/vercel-ai-sdk.ts) | Vercel AI SDK | Multi-step tool calling with any LLM |
+| [`batch-swap.json`](./examples/batch-swap.json) | — | Example batch swap file |
+
+```bash
+# Claude Agent SDK
+ANTHROPIC_API_KEY=sk-... npx tsx examples/claude-agent-sdk.ts
+
+# LangChain (start HTTP API first)
+npx cli-swap-api &
+OPENAI_API_KEY=sk-... npx tsx examples/langchain.ts
+
+# Vercel AI SDK
+npx cli-swap-api &
+OPENAI_API_KEY=sk-... npx tsx examples/vercel-ai-sdk.ts
+```
 
 ## HTTP API Server
 

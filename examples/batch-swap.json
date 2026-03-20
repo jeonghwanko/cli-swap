@@ -1,0 +1,27 @@
+{
+  "description": "Example batch swap file for cli-swap batch command",
+  "swaps": [
+    {
+      "fromChain": "ethereum",
+      "fromToken": "ETH",
+      "toChain": "ethereum",
+      "toToken": "USDC",
+      "amount": "0.1"
+    },
+    {
+      "fromChain": "ethereum",
+      "fromToken": "USDC",
+      "toChain": "polygon",
+      "toToken": "USDC",
+      "amount": "50",
+      "slippage": 1.0
+    },
+    {
+      "fromChain": "polygon",
+      "fromToken": "USDC",
+      "toChain": "arbitrum",
+      "toToken": "USDC",
+      "amount": "25"
+    }
+  ]
+}

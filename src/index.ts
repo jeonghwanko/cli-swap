@@ -8,6 +8,8 @@ import { registerBalanceCommand } from './commands/balance.js';
 import { registerQuoteCommand } from './commands/quote.js';
 import { registerSwapCommand } from './commands/swap.js';
 import { registerConfigCommand } from './commands/config.js';
+import { registerAgentCommand } from './commands/agent.js';
+import { registerBatchCommand } from './commands/batch.js';
 
 const program = new Command();
 
@@ -24,5 +26,7 @@ registerBalanceCommand(program);
 registerQuoteCommand(program);
 registerSwapCommand(program);
 registerConfigCommand(program);
+registerAgentCommand(program);
+registerBatchCommand(program);
 
 program.parse();
