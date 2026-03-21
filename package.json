@@ -26,7 +26,11 @@
     "lifi",
     "ethereum",
     "solana",
-    "token"
+    "token",
+    "mcp",
+    "ai-agent",
+    "openclaw",
+    "telegram"
   ],
   "license": "MIT",
   "repository": {
@@ -36,6 +40,8 @@
   "homepage": "https://github.com/jeonghwanko/cli-swap#readme",
   "files": [
     "dist",
+    "openclaw-skill",
+    "examples",
     "README.md",
     "LICENSE"
   ],

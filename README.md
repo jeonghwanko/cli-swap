@@ -12,6 +12,7 @@ Multi-chain token swap CLI for humans and AI agents. Powered by [Li.Fi SDK](http
 - **Agent mode**: Natural language swaps — `cli-swap agent "swap 1 ETH to USDC"`
 - **Batch swaps**: Execute multiple swaps from a JSON file
 - **AI SDK examples**: Claude Agent SDK, LangChain, Vercel AI SDK
+- **OpenClaw integration**: Swap tokens from Telegram, WhatsApp, Slack via OpenClaw AI agent
 - **Secure wallet storage**: AES-256-GCM encrypted private keys stored locally
 - **Best route**: Li.Fi aggregates 20+ DEXs and 20+ bridges for optimal pricing
 
@@ -298,6 +299,61 @@ curl -X POST http://localhost:3100/quote \
   -H "Content-Type: application/json" \
   -d '{"fromChain":"ethereum","fromToken":"ETH","toChain":"ethereum","toToken":"USDC","amount":"1","wallet":"main"}'
 ```
+
+## OpenClaw Integration (Telegram / WhatsApp / Slack)
+
+Use cli-swap from any messaging app via [OpenClaw](https://openclaw.ai/) — the open-source AI agent.
+
+### Quick Setup
+
+```bash
+# 1. Install cli-swap & import wallet
+npm install -g cli-swap
+cli-swap wallet import --name main --type evm
+
+# 2. Install the OpenClaw skill
+cp -r node_modules/cli-swap/openclaw-skill/ ~/.openclaw/workspace/skills/cli-swap/
+
+# 3. Or use MCP Server (recommended)
+# Add to ~/.openclaw/config.yaml:
+```
+
+```yaml
+mcp:
+  servers:
+    cli-swap:
+      command: npx
+      args: ["-y", "cli-swap-mcp"]
+```
+
+```bash
+# 4. Set wallet password for non-interactive use
+echo 'SWAP_WALLET_PASSWORD=your-password' >> ~/.openclaw/.env
+```
+
+### Usage via Telegram
+
+```
+You: swap 1 ETH to USDC on ethereum
+Bot: 📊 Quote: 1 ETH → 2,487.32 USDC (via Uniswap V3)
+     Fee: ~$2.50 | Slippage: 0.5%
+     Proceed? (yes/no)
+You: yes
+Bot: ✅ Swap executed! TX: 0xabc...123
+     🔗 https://etherscan.io/tx/0xabc...123
+```
+
+```
+You: 이더리움 ETH 0.5개를 USDC로 바꿔줘
+Bot: 📊 견적: 0.5 ETH → 1,243.66 USDC
+     진행할까요?
+You: 응
+Bot: ✅ 스왑 완료! TX: 0xdef...456
+```
+
+> **Security**: Private keys are stored AES-256-GCM encrypted on your local machine. Only the wallet **password** is needed at swap time. **Never send private keys via Telegram** — always import via CLI.
+
+See [`openclaw-skill/README.md`](./openclaw-skill/README.md) for the full setup guide.
 
 ## Security
 
