@@ -36,3 +36,10 @@ export interface SwapResult {
   explorerUrl?: string;
   error?: string;
 }
+
+export interface SendResult {
+  status: 'success' | 'failed';
+  txHash?: string;
+  explorerUrl?: string;
+  error?: string;
+}

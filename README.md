@@ -7,7 +7,7 @@ Multi-chain token swap CLI for humans and AI agents. Powered by [Li.Fi SDK](http
 ## Features
 
 - **60+ chains**: Ethereum, Solana, Polygon, Arbitrum, Base, BSC, Optimism, Avalanche, and more
-- **Same-chain & cross-chain**: Swap tokens within or across any supported chain
+- **Swap & Send**: Swap tokens or send to any address (native + ERC-20/SPL)
 - **3 integration modes**: CLI, MCP Server (Claude native), HTTP REST API
 - **Agent mode**: Natural language swaps — `cli-swap agent "swap 1 ETH to USDC"`
 - **Batch swaps**: Execute multiple swaps from a JSON file
@@ -93,6 +93,30 @@ cli-swap swap <fromChain> <fromToken> <toChain> <toToken> <amount> [options]
 | `--yes` | Skip confirmation prompt |
 | `--json` | Output as JSON |
 
+### Send (Transfer)
+
+```bash
+# Send native tokens
+cli-swap send <chain> <token> <toAddress> <amount> [options]
+```
+
+**Examples:**
+```bash
+# Send ETH on Ethereum
+cli-swap send ethereum ETH 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68 0.5
+
+# Send USDC (ERC-20) on Polygon
+cli-swap send polygon USDC 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68 100
+
+# Send SOL on Solana
+cli-swap send solana SOL 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU 2.5
+
+# Non-interactive (for AI agents)
+cli-swap send ethereum ETH 0x742d...f2bD68 0.5 --wallet main --password mypass --yes --json
+```
+
+**Options:** Same as swap (`--wallet`, `--password`, `--yes`, `--json`)
+
 ### Examples
 
 ```bash
@@ -117,8 +141,13 @@ cli-swap agent "swap 1 ETH to USDC on ethereum"
 cli-swap agent "이더리움 ETH 0.5개를 USDC로 바꿔줘"
 cli-swap agent "bridge 100 USDC from ethereum to polygon"
 
+# Natural language send/transfer
+cli-swap agent "send 0.5 ETH to 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68 on ethereum"
+cli-swap agent "이더리움에서 USDC 100개를 0x742d...로 보내줘"
+
 # Non-interactive (for automation)
 cli-swap agent "swap 1 ETH to USDC on ethereum" --wallet main --password mypass --yes --json
+cli-swap agent "send 0.5 ETH to 0x742d...f2bD68 on ethereum" --wallet main --password mypass --yes --json
 ```
 
 ### Batch Swaps
@@ -190,6 +219,7 @@ cli-swap includes a built-in [MCP](https://modelcontextprotocol.io/) server that
 | `get_balance` | Check native token balance |
 | `get_quote` | Get swap quote (no execution) |
 | `execute_swap` | Execute a token swap |
+| `send_token` | Send tokens to an address (native + ERC-20) |
 | `list_wallets` | List saved wallets |
 | `import_wallet` | Import a new wallet |
 
@@ -288,6 +318,7 @@ npx cli-swap-api --api-key mysecretkey    # with API key auth
 | `GET` | `/balance/:chain?wallet=name` | Check balance |
 | `POST` | `/quote` | Get swap quote |
 | `POST` | `/swap` | Execute swap |
+| `POST` | `/send` | Send tokens to address |
 | `GET` | `/wallets` | List wallets |
 | `POST` | `/wallets` | Import wallet |
 

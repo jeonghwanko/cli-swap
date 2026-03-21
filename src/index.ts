@@ -10,6 +10,7 @@ import { registerSwapCommand } from './commands/swap.js';
 import { registerConfigCommand } from './commands/config.js';
 import { registerAgentCommand } from './commands/agent.js';
 import { registerBatchCommand } from './commands/batch.js';
+import { registerSendCommand } from './commands/send.js';
 
 const program = new Command();
 
@@ -28,5 +29,6 @@ registerSwapCommand(program);
 registerConfigCommand(program);
 registerAgentCommand(program);
 registerBatchCommand(program);
+registerSendCommand(program);
 
 program.parse();

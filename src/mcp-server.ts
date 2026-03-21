@@ -10,7 +10,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { ethers } from 'ethers';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection, PublicKey, Keypair } from '@solana/web3.js';
 
 import {
   getSupportedChains,
@@ -19,9 +19,12 @@ import {
   getChainTokens,
   getSwapQuote,
   executeSwapRoute,
+  initSdk,
   initSdkWithEvmWallet,
   initSdkWithSolanaWallet,
 } from './core/swapper.js';
+import { executeTransfer } from './core/sender.js';
+import bs58 from 'bs58';
 import {
   listWallets,
   getWallet,
@@ -295,6 +298,82 @@ server.tool(
     } else {
       return {
         content: [{ type: 'text' as const, text: JSON.stringify({ status: 'failed', error: swapResult.error ?? 'Unknown error' }) }],
+        isError: true,
+      };
+    }
+  },
+);
+
+// ── Tool: send_token ─────────────────────────────────────────
+
+server.tool(
+  'send_token',
+  'Send tokens (native or ERC-20) to an address. Requires wallet password.',
+  {
+    chain: z.string().describe('Chain name or ID (e.g., "ethereum", "polygon", "solana")'),
+    token: z.string().describe('Token symbol or address (e.g., "ETH", "USDC")'),
+    toAddress: z.string().describe('Recipient wallet address'),
+    amount: z.string().describe('Amount in human-readable format (e.g., "0.5")'),
+    wallet: z.string().describe('Wallet name'),
+    password: z.string().describe('Wallet encryption password'),
+  },
+  async ({ chain, token, toAddress, amount, wallet, password }) => {
+    const walletInfo = getWallet(wallet);
+    if (!walletInfo) {
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'failed', error: `Wallet "${wallet}" not found.` }) }], isError: true };
+    }
+
+    // Unlock wallet
+    let privateKey: string;
+    let keypair: Keypair | undefined;
+    try {
+      if (walletInfo.type === 'solana') {
+        keypair = unlockSolanaWallet(walletInfo, password);
+        privateKey = bs58.encode(keypair.secretKey);
+      } else {
+        const ethWallet = unlockEvmWallet(walletInfo, password);
+        privateKey = ethWallet.privateKey;
+      }
+    } catch (err) {
+      const msg = err instanceof DecryptionError ? 'Wrong password.' : (err instanceof Error ? err.message : String(err));
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'failed', error: msg }) }], isError: true };
+    }
+
+    // Resolve chain and token
+    initSdk();
+    const chainInfo = await findChain(chain);
+    if (!chainInfo) return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'failed', error: `Chain "${chain}" not found.` }) }], isError: true };
+
+    const tokenInfo = await findToken(chainInfo.id, token);
+    if (!tokenInfo) return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'failed', error: `Token "${token}" not found on ${chainInfo.name}.` }) }], isError: true };
+
+    const rawAmount = parseAmount(amount, tokenInfo.decimals);
+
+    const result = await executeTransfer({
+      chain: chainInfo,
+      token: tokenInfo,
+      toAddress,
+      amount: rawAmount,
+      privateKey,
+      keypair,
+    });
+
+    if (result.status === 'success') {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          status: 'success',
+          txHash: result.txHash,
+          from: walletInfo.address,
+          to: toAddress,
+          amount: formatAmount(rawAmount, tokenInfo.decimals),
+          token: tokenInfo.symbol,
+          chain: chainInfo.name,
+          explorerUrl: result.explorerUrl,
+        }, null, 2) }],
+      };
+    } else {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({ status: 'failed', error: result.error ?? 'Unknown error' }) }],
         isError: true,
       };
     }

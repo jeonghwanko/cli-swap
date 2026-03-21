@@ -1,16 +1,20 @@
 import { Command } from 'commander';
+import { Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
 import {
   findChain,
   findToken,
   getSwapQuote,
   executeSwapRoute,
+  initSdk,
   initSdkWithEvmWallet,
   initSdkWithSolanaWallet,
 } from '../core/swapper.js';
+import { executeTransfer } from '../core/sender.js';
 import { getWallet, unlockEvmWallet, unlockSolanaWallet } from '../core/wallet.js';
 import { loadConfig } from '../core/config.js';
+import { decrypt, DecryptionError } from '../utils/crypto.js';
 import { parseAmount, formatAmount } from '../utils/amount.js';
-import { DecryptionError } from '../utils/crypto.js';
 import * as display from '../utils/display.js';
 import { askPassword, askConfirm, askInput } from '../utils/prompt.js';
 
@@ -24,21 +28,41 @@ import { askPassword, askConfirm, askInput } from '../utils/prompt.js';
  * - "0.1 ETH -> arbitrum USDC"
  * - "bridge 50 USDC from polygon to base"
  */
+type IntentAction = 'swap' | 'send';
+
 interface ParsedIntent {
+  action: IntentAction;
   fromChain?: string;
   fromToken?: string;
   toChain?: string;
   toToken?: string;
   amount?: string;
+  toAddress?: string; // for send
 }
 
 function parseNaturalLanguage(input: string): ParsedIntent {
-  const result: ParsedIntent = {};
+  const result: ParsedIntent = { action: 'swap' };
   const lower = input.toLowerCase().trim();
+
+  // Detect send/transfer intent
+  const sendPatterns = /^(send|transfer|보내|송금|전송)/i;
+  if (sendPatterns.test(lower)) {
+    result.action = 'send';
+  }
+
+  // Extract wallet address (0x... for EVM, base58 for Solana)
+  const evmAddrMatch = input.match(/(0x[0-9a-fA-F]{40})/);
+  const solAddrMatch = input.match(/\b([1-9A-HJ-NP-Za-km-z]{32,44})\b/);
+  if (evmAddrMatch) {
+    result.toAddress = evmAddrMatch[1];
+    result.action = 'send'; // if address detected, it's a send
+  } else if (result.action === 'send' && solAddrMatch) {
+    result.toAddress = solAddrMatch[1];
+  }
 
   // Remove common prefixes
   const cleaned = lower
-    .replace(/^(swap|convert|exchange|bridge|send|buy|sell|바꿔|교환|스왑|전환)\s*/i, '')
+    .replace(/^(swap|convert|exchange|bridge|send|transfer|buy|sell|바꿔|교환|스왑|전환|보내|송금|전송)\s*/i, '')
     .replace(/해\s*줘\s*$/, '')
     .replace(/으?로\s*$/, '')
     .trim();
@@ -117,7 +141,7 @@ function parseNaturalLanguage(input: string): ParsedIntent {
 export function registerAgentCommand(program: Command): void {
   program
     .command('agent [intent...]')
-    .description('Natural language swap: cli-swap agent "swap 1 ETH to USDC on ethereum"')
+    .description('Natural language swap/send: cli-swap agent "swap 1 ETH to USDC" or "send 0.5 ETH to 0x..."')
     .option('--wallet <name>', 'Wallet to use')
     .option('--password <pw>', 'Wallet password')
     .option('--yes', 'Skip confirmation')
@@ -139,21 +163,7 @@ export function registerAgentCommand(program: Command): void {
       // Parse intent
       const parsed = parseNaturalLanguage(intentText);
 
-      // Fill in missing fields interactively
-      if (!parsed.fromChain) parsed.fromChain = await askInput('Source chain (e.g., ethereum):');
-      if (!parsed.fromToken) parsed.fromToken = await askInput('Source token (e.g., ETH):');
-      if (!parsed.toChain) parsed.toChain = await askInput('Destination chain (e.g., polygon):');
-      if (!parsed.toToken) parsed.toToken = await askInput('Destination token (e.g., USDC):');
-      if (!parsed.amount) parsed.amount = await askInput('Amount (e.g., 1.0):');
-
-      if (!opts.json) {
-        display.heading('Parsed Intent');
-        display.keyValue('From', `${parsed.amount} ${parsed.fromToken} (${parsed.fromChain})`);
-        display.keyValue('To', `${parsed.toToken} (${parsed.toChain})`);
-        console.log();
-      }
-
-      // Resolve wallet
+      // Resolve wallet (shared for both send and swap)
       const config = loadConfig();
       const walletName = opts.wallet ?? config.defaultWallet;
       if (!walletName) {
@@ -167,19 +177,116 @@ export function registerAgentCommand(program: Command): void {
       // Unlock wallet
       const password = opts.password ?? process.env['SWAP_WALLET_PASSWORD'] ?? await askPassword('Enter wallet password:');
 
+      let privateKey: string;
+      let keypair: Keypair | undefined;
       const spin = display.spinner('Unlocking wallet...');
       try {
+        privateKey = decrypt(
+          walletInfo.encryptedKey, password,
+          walletInfo.iv, walletInfo.salt, walletInfo.authTag,
+        );
         if (walletInfo.type === 'solana') {
-          const kp = unlockSolanaWallet(walletInfo, password);
-          initSdkWithSolanaWallet(kp.secretKey.toString());
+          keypair = Keypair.fromSecretKey(bs58.decode(privateKey));
+          initSdkWithSolanaWallet(privateKey);
         } else {
-          const w = unlockEvmWallet(walletInfo, password);
-          initSdkWithEvmWallet(w.privateKey);
+          initSdkWithEvmWallet(privateKey);
         }
         spin.succeed('Wallet unlocked');
       } catch (err) {
         spin.fail(err instanceof DecryptionError ? 'Wrong password' : 'Unlock failed');
         display.exitWithError(err instanceof DecryptionError ? 'Wrong password.' : (err instanceof Error ? err.message : String(err)), opts.json);
+      }
+
+      // ── SEND MODE ──
+      if (parsed.action === 'send') {
+        if (!parsed.fromChain) parsed.fromChain = await askInput('Chain (e.g., ethereum):');
+        if (!parsed.fromToken) parsed.fromToken = await askInput('Token to send (e.g., ETH):');
+        if (!parsed.amount) parsed.amount = await askInput('Amount (e.g., 0.5):');
+        if (!parsed.toAddress) parsed.toAddress = await askInput('Recipient address:');
+
+        if (!opts.json) {
+          display.heading('Parsed Intent: Send');
+          display.keyValue('Send', `${parsed.amount} ${parsed.fromToken} (${parsed.fromChain})`);
+          display.keyValue('To', parsed.toAddress);
+          console.log();
+        }
+
+        initSdk();
+        const spin2 = display.spinner('Resolving...');
+        try {
+          const chain = await findChain(parsed.fromChain!);
+          if (!chain) { spin2.stop(); display.exitWithError(`Chain "${parsed.fromChain}" not found.`, opts.json); }
+
+          const token = await findToken(chain.id, parsed.fromToken!);
+          if (!token) { spin2.stop(); display.exitWithError(`Token "${parsed.fromToken}" not found on ${chain.name}.`, opts.json); }
+
+          const rawAmount = parseAmount(parsed.amount!, token.decimals);
+          const amountHuman = formatAmount(rawAmount, token.decimals);
+          spin2.stop();
+
+          if (!opts.json) {
+            display.heading('Transfer Preview');
+            display.keyValue('From', `${walletInfo.address} (${walletName})`);
+            display.keyValue('To', parsed.toAddress!);
+            display.keyValue('Amount', `${amountHuman} ${token.symbol}`);
+            display.keyValue('Chain', chain.name);
+            console.log();
+          }
+
+          if (!opts.yes) {
+            const confirmed = await askConfirm('Execute this transfer?');
+            if (!confirmed) { display.info('Cancelled.'); process.exit(0); }
+          }
+
+          const spin3 = display.spinner('Sending tokens...');
+          const result = await executeTransfer({
+            chain, token,
+            toAddress: parsed.toAddress!,
+            amount: rawAmount,
+            privateKey, keypair,
+          });
+
+          if (result.status === 'success') {
+            spin3.succeed('Transfer completed!');
+            if (opts.json) {
+              display.jsonOutput({
+                status: 'success', intent: intentText, action: 'send',
+                txHash: result.txHash, from: walletInfo.address,
+                to: parsed.toAddress, amount: amountHuman, token: token.symbol,
+                chain: chain.name, explorerUrl: result.explorerUrl,
+              });
+            } else {
+              if (result.txHash) display.keyValue('Tx Hash', result.txHash);
+              if (result.explorerUrl) display.keyValue('Explorer', result.explorerUrl);
+            }
+          } else {
+            spin3.fail('Transfer failed');
+            if (opts.json) {
+              display.jsonOutput({ status: 'failed', intent: intentText, action: 'send', error: result.error });
+            } else {
+              display.error(result.error ?? 'Unknown error');
+            }
+            process.exit(1);
+          }
+        } catch (err) {
+          spin2.fail('Failed');
+          display.exitWithError(err instanceof Error ? err.message : String(err), opts.json);
+        }
+        return;
+      }
+
+      // ── SWAP MODE ──
+      if (!parsed.fromChain) parsed.fromChain = await askInput('Source chain (e.g., ethereum):');
+      if (!parsed.fromToken) parsed.fromToken = await askInput('Source token (e.g., ETH):');
+      if (!parsed.toChain) parsed.toChain = await askInput('Destination chain (e.g., polygon):');
+      if (!parsed.toToken) parsed.toToken = await askInput('Destination token (e.g., USDC):');
+      if (!parsed.amount) parsed.amount = await askInput('Amount (e.g., 1.0):');
+
+      if (!opts.json) {
+        display.heading('Parsed Intent: Swap');
+        display.keyValue('From', `${parsed.amount} ${parsed.fromToken} (${parsed.fromChain})`);
+        display.keyValue('To', `${parsed.toToken} (${parsed.toChain})`);
+        console.log();
       }
 
       // Resolve chains and tokens
@@ -232,7 +339,7 @@ export function registerAgentCommand(program: Command): void {
           spin3.succeed('Swap completed!');
           if (opts.json) {
             display.jsonOutput({
-              status: 'success', intent: intentText, txHash: result.txHash,
+              status: 'success', intent: intentText, action: 'swap', txHash: result.txHash,
               from: { chain: fromChain.name, token: fromToken.symbol, amount: fromAmountHuman },
               to: { chain: toChain.name, token: toToken.symbol, amount: toAmountHuman },
               explorerUrl: result.explorerUrl,
@@ -244,7 +351,7 @@ export function registerAgentCommand(program: Command): void {
         } else {
           spin3.fail('Swap failed');
           if (opts.json) {
-            display.jsonOutput({ status: 'failed', intent: intentText, error: result.error });
+            display.jsonOutput({ status: 'failed', intent: intentText, action: 'swap', error: result.error });
           } else {
             display.error(result.error ?? 'Unknown error');
           }

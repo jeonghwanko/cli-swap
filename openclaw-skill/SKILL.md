@@ -7,6 +7,7 @@ Token swap assistant for 60+ blockchains. Swap any token on Ethereum, Solana, Po
 ## When to Use
 
 - User asks to swap, exchange, or trade tokens/crypto
+- User asks to send, transfer, or move tokens to another address
 - User asks about token prices or swap quotes
 - User asks to check wallet balance
 - User asks to search for tokens on a chain
@@ -18,6 +19,9 @@ Token swap assistant for 60+ blockchains. Swap any token on Ethereum, Solana, Po
 - "swap 1 ETH to USDC on ethereum"
 - "이더리움 ETH 0.5개를 USDC로 바꿔줘"
 - "bridge 100 USDC from ethereum to polygon"
+- "send 0.5 ETH to 0x742d...f2bD68 on ethereum"
+- "send 100 USDC to 0x742d...f2bD68 on polygon"
+- "이더리움에서 0.5 ETH를 0x742d...로 보내줘"
 - "check my balance on ethereum"
 - "search for USDC on arbitrum"
 - "get a quote for 0.1 ETH to USDC"
@@ -78,12 +82,18 @@ npx cli-swap quote <fromChain> <fromToken> <toChain> <toToken> <amount> --wallet
 npx cli-swap swap <fromChain> <fromToken> <toChain> <toToken> <amount> --wallet <name> --password "$SWAP_WALLET_PASSWORD" --yes --json
 ```
 
+#### Send tokens to an address
+```bash
+npx cli-swap send <chain> <token> <toAddress> <amount> --wallet <name> --password "$SWAP_WALLET_PASSWORD" --yes --json
+```
+Example: `npx cli-swap send ethereum ETH 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68 0.5 --wallet main --password "$SWAP_WALLET_PASSWORD" --yes --json`
+
 #### List wallets
 ```bash
 npx cli-swap wallet list --json
 ```
 
-### Workflow
+### Workflow — Swap
 
 1. **Parse the user's intent**: Identify fromChain, fromToken, toChain, toToken, amount
 2. **If chain or token is ambiguous**, use `tokens` command to search and confirm with the user
@@ -92,6 +102,15 @@ npx cli-swap wallet list --json
 5. **Ask for confirmation**: "Proceed with this swap?"
 6. **If confirmed**, check that `SWAP_WALLET_PASSWORD` is available. If not, ask the user for their password.
 7. **Execute the swap** and return the transaction hash and explorer URL
+
+### Workflow — Send (Transfer)
+
+1. **Parse the user's intent**: Identify chain, token, amount, and recipient address (0x... or Solana address)
+2. **Validate the address format**: EVM addresses must be 0x + 40 hex chars
+3. **Show a preview**: From address, To address, Amount, Token, Chain
+4. **Ask for confirmation**: "Proceed with this transfer?"
+5. **If confirmed**, check that `SWAP_WALLET_PASSWORD` is available. If not, ask the user for their password.
+6. **Execute the send** and return the transaction hash and explorer URL
 
 ### Error Handling
 

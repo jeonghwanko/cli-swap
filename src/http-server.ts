@@ -10,7 +10,8 @@
 
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { ethers } from 'ethers';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection, PublicKey, Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
 
 import {
   getSupportedChains,
@@ -19,9 +20,11 @@ import {
   getChainTokens,
   getSwapQuote,
   executeSwapRoute,
+  initSdk,
   initSdkWithEvmWallet,
   initSdkWithSolanaWallet,
 } from './core/swapper.js';
+import { executeTransfer } from './core/sender.js';
 import {
   listWallets,
   getWallet,
@@ -238,6 +241,69 @@ app.post('/swap', asyncHandler(async (req, res) => {
   }
 }));
 
+// POST /send { chain, token, toAddress, amount, wallet, password }
+app.post('/send', asyncHandler(async (req, res) => {
+  const { chain, token, toAddress, amount, wallet, password } = req.body;
+  if (!chain || !token || !toAddress || !amount || !wallet || !password) {
+    res.status(400).json({ error: 'Missing required fields: chain, token, toAddress, amount, wallet, password' });
+    return;
+  }
+
+  const walletInfo = getWallet(wallet);
+  if (!walletInfo) { res.status(404).json({ status: 'failed', error: `Wallet "${wallet}" not found.` }); return; }
+
+  // Unlock wallet
+  let privateKey: string;
+  let keypair: Keypair | undefined;
+  try {
+    if (walletInfo.type === 'solana') {
+      keypair = unlockSolanaWallet(walletInfo, password);
+      privateKey = bs58.encode(keypair.secretKey);
+    } else {
+      const ethWallet = unlockEvmWallet(walletInfo, password);
+      privateKey = ethWallet.privateKey;
+    }
+  } catch (err) {
+    const msg = err instanceof DecryptionError ? 'Wrong password.' : (err instanceof Error ? err.message : String(err));
+    res.status(401).json({ status: 'failed', error: msg });
+    return;
+  }
+
+  // Resolve chain and token
+  initSdk();
+  const chainInfo = await findChain(chain);
+  if (!chainInfo) { res.status(404).json({ status: 'failed', error: `Chain "${chain}" not found.` }); return; }
+
+  const tokenInfo = await findToken(chainInfo.id, token);
+  if (!tokenInfo) { res.status(404).json({ status: 'failed', error: `Token "${token}" not found on ${chainInfo.name}.` }); return; }
+
+  const rawAmount = parseAmount(amount, tokenInfo.decimals);
+
+  const result = await executeTransfer({
+    chain: chainInfo,
+    token: tokenInfo,
+    toAddress,
+    amount: rawAmount,
+    privateKey,
+    keypair,
+  });
+
+  if (result.status === 'success') {
+    res.json({
+      status: 'success',
+      txHash: result.txHash,
+      from: walletInfo.address,
+      to: toAddress,
+      amount: formatAmount(rawAmount, tokenInfo.decimals),
+      token: tokenInfo.symbol,
+      chain: chainInfo.name,
+      explorerUrl: result.explorerUrl,
+    });
+  } else {
+    res.status(500).json({ status: 'failed', error: result.error ?? 'Unknown error' });
+  }
+}));
+
 // GET /wallets
 app.get('/wallets', (_req, res) => {
   const wallets = listWallets();
@@ -286,6 +352,7 @@ app.listen(PORT, () => {
   console.log('  GET  /balance/:chain?wallet=name');
   console.log('  POST /quote   { fromChain, fromToken, toChain, toToken, amount, wallet }');
   console.log('  POST /swap    { fromChain, fromToken, toChain, toToken, amount, wallet, password }');
+  console.log('  POST /send    { chain, token, toAddress, amount, wallet, password }');
   console.log('  GET  /wallets');
   console.log('  POST /wallets { name, type, privateKey, password }');
 });
